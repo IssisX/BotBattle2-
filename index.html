@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Bot Forge & Fight – 2D Battle Bots</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+
+<!-- ─────────────────────────  LIBRARIES  ────────────────────────── -->
+<!-- Matter.js physics (render + engine) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<!-- Dexie.js for persistent local bot storage -->
+<script src="https://cdn.jsdelivr.net/npm/dexie@4/dist/dexie.min.js"></script>
+
+<!-- ───────────────────────────  STYLES  ─────────────────────────── -->
+<style>
+:root{
+  --bg:#11151c;--panel:#1e2430;--accent:#00d1ff;--text:#f1f1f1;--danger:#ff5252;
+  --wood:#9e6e38;--metal:#8c8c8c;--frame:#4f4f4f;--battery:#0066ff;--weapon:#d600ff;
+}
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;color:var(--text);}
+body{margin:0;display:flex;height:100vh;background:var(--bg);overflow:hidden;}
+/* Left side: Build/Play canvas */
+#game-container{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{background:#151a24;border:2px solid var(--panel);max-width:100%;height:auto;}
+/* Right side: UI panels */
+#ui{width:320px;display:flex;flex-direction:column;background:var(--panel);overflow:hidden;}
+h2{margin:4px 0;padding:4px 8px;font-size:1.1rem;border-bottom:1px solid #0003;}
+.panel{padding:8px;overflow:auto;flex:1;}
+button{
+  background:var(--accent);border:none;border-radius:4px;padding:8px 12px;
+  margin:4px 0;font-weight:bold;cursor:pointer;transition:filter .2s;
+}
+button:hover{filter:brightness(1.1);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+.stat{margin:2px 0;font-size:.9rem;}
+.over-limit{color:var(--danger);font-weight:bold;}
+/* Component palette */
+#palette{display:grid;grid-template-columns:repeat(auto-fill,80px);gap:6px;}
+.comp-card{
+  width:80px;height:80px;border:2px solid #0002;background:#1a1f2b;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:grab;border-radius:6px;transition:transform .1s;
+}
+.comp-card:active{transform:scale(.95);cursor:grabbing;}
+.comp-card span{font-size:.7rem;text-align:center;pointer-events:none;}
+/* Build grid */
+#build-grid{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;}
+/* Modal */
+#modal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:20;}
+#modal .box{background:var(--panel);padding:28px;border-radius:10px;text-align:center;}
+/* Health bar */
+.health-bar{position:absolute;height:4px;background:var(--danger);transform-origin:left;}
+/* Sparks & explosion canvas overlay */
+#fx{position:absolute;top:0;left:0;pointer-events:none;}
+</style>
+</head>
+<body>
+<!-- ───────────────────────────  DOM  ───────────────────────────── -->
+<div id="game-container">
+  <canvas id="buildCanvas" width="640" height="640"></canvas>
+  <canvas id="battleCanvas" width="640" height="640" style="display:none;"></canvas>
+  <canvas id="fx" width="640" height="640"></canvas>
+  <canvas id="build-grid" width="640" height="640"></canvas>
+</div>
+
+<div id="ui">
+  <div class="panel" style="flex:0;">
+    <button id="modeBtn">Switch to Battle Mode</button>
+    <button id="saveBtn">Save Bot</button>
+    <button id="loadBtn">Load Bot</button>
+    <button id="clearBtn">Clear Workshop</button>
+  </div>
+
+  <h2>Component Palette</h2>
+  <div id="palette" class="panel"></div>
+
+  <h2>Bot Stats</h2>
+  <div id="stats" class="panel">
+    <div class="stat" id="stat-weight">Weight: 0 / 100</div>
+    <div class="stat" id="stat-power">Power Usage: 0 / 0</div>
+    <div class="stat" id="stat-count">Components: 0</div>
+  </div>
+</div>
+
+<!-- Victory / defeat modal -->
+<div id="modal"><div class="box" id="modalText"></div></div>
+
+<!-- ──────────────────────────  SCRIPT  ──────────────────────────── -->
+<script type="module">
+/* ================================================================
+   BOT FORGE & FIGHT – SINGLE-FILE IMPLEMENTATION
+   ================================================================
+   Author: ChatGPT (OpenAI) – 2025-06-13
+   ------------------------------------------------
+   1. CONSTANTS & DATABASE
+   2. COMPONENT DEFINITIONS
+   3. WORKSHOP (Builder Mode)
+   4. BATTLE ENGINE (Battle Mode)
+   5. PARTICLE FX
+   6. APP STARTUP
+=================================================================*/
+/*───────────────── 1. CONSTANTS & DATABASE ─────────────────*/
+const GRID=32;                     // Build-grid cell size (px)
+const BUILD_SIZE=20;               // 20×20 cells
+const MAX_WEIGHT=100;              // Weight limit
+// IndexedDB setup for persistent saved bots
+const db=new Dexie('bot_forge');
+db.version(1).stores({designs:'name,data'});
+
+/*──────────────── 2. COMPONENT DEFINITIONS ────────────────*/
+class Component{
+  constructor({name,type,color,mass,hp,powerDraw,special}){Object.assign(this,{name,type,color,mass,hp,maxHp:hp,powerDraw,special});}
+}
+const COMPONENTS=[
+  /* CORE */
+  new Component({name:'Control Unit',type:'core',color:'#ffd700',mass:5,hp:50,powerDraw:0,special:{powerCap:20}}),
+
+  /* CHASSIS */
+  new Component({name:'Wood Plank',type:'chassis',color:'var(--wood)',mass:2,hp:10,powerDraw:0}),
+  new Component({name:'Metal Beam',type:'chassis',color:'var(--metal)',mass:6,hp:35,powerDraw:0}),
+  new Component({name:'Light Frame',type:'chassis',color:'var(--frame)',mass:3,hp:15,powerDraw:0}),
+  new Component({name:'Heavy Frame',type:'chassis',color:'var(--frame)',mass:7,hp:40,powerDraw:0}),
+
+  /* MOVEMENT */
+  new Component({name:'Small Wheel',type:'wheel',color:'#444',mass:1,hp:8,powerDraw:1,special:{grip:0.8}}),
+  new Component({name:'Large Wheel',type:'wheel',color:'#222',mass:2,hp:12,powerDraw:2,special:{grip:1.2}}),
+  new Component({name:'Electric Motor',type:'motor',color:'#3af',mass:3,hp:20,powerDraw:2,special:{torque:2}}),
+
+  /* POWER */
+  new Component({name:'Small Battery',type:'battery',color:'var(--battery)',mass:4,hp:15,powerDraw:0,special:{powerCap:15}}),
+  new Component({name:'Large Battery',type:'battery',color:'var(--battery)',mass:8,hp:30,powerDraw:0,special:{powerCap:40}}),
+
+  /* WEAPONS */
+  new Component({name:'Drill Spike',type:'weapon',color:'var(--weapon)',mass:3,hp:20,powerDraw:2,special:{damage:0.4,range:16}}),
+  new Component({name:'Spinner Blade',type:'weapon',color:'var(--weapon)',mass:5,hp:25,powerDraw:4,special:{damage:0.8,spin:true}}),
+  new Component({name:'Hammer Arm',type:'weapon',color:'var(--weapon)',mass:4,hp:20,powerDraw:3,special:{damage:1.2,arc:90}}),
+  new Component({name:'Flipper Panel',type:'weapon',color:'var(--weapon)',mass:4,hp:18,powerDraw:2,special:{damage:0.2,flip:true}}),
+
+  /* UTILITY */
+  new Component({name:'Servo',type:'servo',color:'#ff7f00',mass:2,hp:12,powerDraw:1}),
+  new Component({name:'Armor Plating',type:'armor',color:'#666',mass:6,hp:50,powerDraw:0})
+];
+
+/*──────────────── 3. WORKSHOP – Builder Mode ───────────────*/
+class Workshop{
+  constructor(){
+    this.canvas=document.getElementById('buildCanvas');
+    this.ctx=this.canvas.getContext('2d');
+    this.gridCtx=document.getElementById('build-grid').getContext('2d');
+    this.components=[];            // placed parts {comp,gridX,gridY}
+    this.selected=null;            // currently dragged palette item
+    this.initPalette();
+    this.drawGrid();
+    this.initEvents();
+    this.updateStats();
+  }
+  /* Draw faint grid lines */
+  drawGrid(){
+    const g=this.gridCtx;g.clearRect(0,0,this.canvas.width,this.canvas.height);
+    g.strokeStyle='#ffffff0c';g.lineWidth=1;for(let i=0;i<=BUILD_SIZE;i++){
+      g.beginPath();g.moveTo(i*GRID,0);g.lineTo(i*GRID,this.canvas.height);g.stroke();
+      g.beginPath();g.moveTo(0,i*GRID);g.lineTo(this.canvas.width,i*GRID);g.stroke();
+    }
+  }
+  /* Palette DOM setup */
+  initPalette(){
+    const pal=document.getElementById('palette');
+    COMPONENTS.forEach(c=>{
+      const card=document.createElement('div');card.className='comp-card';card.draggable=true;
+      card.dataset.name=c.name;
+      card.style.background=c.color;
+      card.innerHTML=`<span>${c.name}</span>`;
+      card.addEventListener('dragstart',e=>{this.selected=c;e.dataTransfer.setData('text/plain',c.name);});
+      pal.appendChild(card);
+    });
+  }
+  /* Mouse + drag events on build canvas */
+  initEvents(){
+    // Allow drop
+    this.canvas.addEventListener('dragover',e=>e.preventDefault());
+    this.canvas.addEventListener('drop',e=>{
+      if(!this.selected)return;
+      const rect=this.canvas.getBoundingClientRect();
+      const gx=Math.floor((e.clientX-rect.left)/GRID);
+      const gy=Math.floor((e.clientY-rect.top)/GRID);
+      this.placeComponent(this.selected,gx,gy);
+      this.selected=null;
+    });
+    // Click to remove
+    this.canvas.addEventListener('click',e=>{
+      const rect=this.canvas.getBoundingClientRect();
+      const gx=Math.floor((e.clientX-rect.left)/GRID);
+      const gy=Math.floor((e.clientY-rect.top)/GRID);
+      const idx=this.components.findIndex(p=>p.gridX===gx&&p.gridY===gy);
+      if(idx>-1){this.components.splice(idx,1);this.render();this.updateStats();}
+    });
+  }
+  /* Verify constraints & place component */
+  placeComponent(comp,gx,gy){
+    // Bounds
+    if(gx<0||gx>=BUILD_SIZE||gy<0||gy>=BUILD_SIZE)return;
+    // First item must be core
+    if(this.components.length===0&&comp.type!=='core'){alert('First component must be Control Unit');return;}
+    // Ensure no overlap
+    if(this.components.some(p=>p.gridX===gx&&p.gridY===gy)){alert('Position occupied');return;}
+    // Must touch another part (except core)
+    if(comp.type!=='core'){
+      const touches=this.components.some(p=>Math.abs(p.gridX-gx)+Math.abs(p.gridY-gy)===1);
+      if(!touches){alert('Component must connect to existing part');return;}
+    }
+    // Simulate stats to check limits
+    const future=[...this.components,{comp,gx,gy}];
+    const stats=this.calculateStats(future);
+    if(stats.weight>MAX_WEIGHT){alert('Bot exceeds maximum weight');return;}
+    if(stats.powerUsage>stats.powerCap){alert('Insufficient power capacity');return;}
+    this.components=future;
+    this.render();
+    this.updateStats();
+  }
+  /* Compute totals */
+  calculateStats(list=this.components){
+    let weight=0,powerCap=0,powerUsage=0;
+    list.forEach(({comp})=>{
+      weight+=comp.mass;
+      powerUsage+=comp.powerDraw;
+      if(comp.special?.powerCap)powerCap+=comp.special.powerCap;
+    });
+    return {weight,powerCap,powerUsage,count:list.length};
+  }
+  /* Draw build canvas */
+  render(){
+    const c=this.ctx;c.clearRect(0,0,this.canvas.width,this.canvas.height);
+    this.components.forEach(({comp,gridX,gridY})=>{
+      c.fillStyle=getComputedStyle(document.body).getPropertyValue(comp.color?comp.color.match(/^var/)?comp.color:"":'')||comp.color;
+      c.fillRect(gridX*GRID,gridY*GRID,GRID,GRID);
+      c.strokeStyle='#000';c.strokeRect(gridX*GRID,gridY*GRID,GRID,GRID);
+    });
+  }
+  /* Update stats panel */
+  updateStats(){
+    const st=this.calculateStats();
+    const w=document.getElementById('stat-weight');
+    w.textContent=`Weight: ${st.weight} / ${MAX_WEIGHT}`;
+    w.classList.toggle('over-limit',st.weight>MAX_WEIGHT);
+    const p=document.getElementById('stat-power');
+    p.textContent=`Power Usage: ${st.powerUsage} / ${st.powerCap}`;
+    p.classList.toggle('over-limit',st.powerUsage>st.powerCap);
+    document.getElementById('stat-count').textContent=`Components: ${st.count}`;
+  }
+  /* Serialize bot design for battle / save */
+  exportDesign(){return JSON.stringify(this.components.map(p=>({name:p.comp.name,gx:p.gx,gy:p.gy})));}
+  /* Import design */
+  importDesign(json){
+    try{
+      const arr=JSON.parse(json);
+      this.components=[];
+      arr.forEach(({name,gx,gy})=>{
+        const comp=COMPONENTS.find(c=>c.name===name);
+        if(comp)this.components.push({comp,gx,gy});
+      });
+      this.render();this.updateStats();
+    }catch(e){alert('Failed to load design');}
+  }
+}
+const workshop=new Workshop();
+
+/*──────────────── 4. BATTLE ENGINE – Battle Mode ───────────*/
+class Battle{
+  constructor(design){
+    this.canvas=document.getElementById('battleCanvas');this.canvas.style.display='block';
+    this.width=this.canvas.width;this.height=this.canvas.height;
+    // Engine & world
+    this.engine=Matter.Engine.create();this.world=this.engine.world;
+    this.runner=Matter.Runner.create();
+    // Renderer
+    this.render=Matter.Render.create({canvas:this.canvas,engine:this.engine,options:{
+      width:this.width,height:this.height,wireframes:false,background:'#11151c'
+    }});
+    // Create arena walls
+    const wallOpts={isStatic:true,render:{fillStyle:'#333'}};
+    Matter.World.add(this.world,[
+      Matter.Bodies.rectangle(this.width/2,-10,this.width,20,wallOpts),
+      Matter.Bodies.rectangle(this.width/2,this.height+10,this.width,20,wallOpts),
+      Matter.Bodies.rectangle(-10,this.height/2,20,this.height,wallOpts),
+      Matter.Bodies.rectangle(this.width+10,this.height/2,20,this.height,wallOpts)
+    ]);
+    // Build player & enemy
+    this.player=this.buildBot(design,200,300,true);
+    this.enemy=this.buildAIBot(440,300);
+    // Particles
+    this.fxCtx=document.getElementById('fx').getContext('2d');
+    this.particles=[];
+    // Events
+    this.bindDamage();
+    this.initControls();
+    Matter.Runner.run(this.runner,this.engine);
+    Matter.Render.run(this.render);
+    this.gameLoop();
+  }
+  /* Convert design array to physics bodies & constraints */
+  buildBot(json,x0,y0,isPlayer){
+    const base=JSON.parse(json);
+    const group=Matter.Body.nextGroup(true);      // prevent self-collision
+    const parts=[];const compMap=new Map();       // map for hit detection
+    base.forEach(({name,gx,gy})=>{
+      const def=COMPONENTS.find(c=>c.name===name);
+      const x=x0+(gx-BUILD_SIZE/2)*GRID;
+      const y=y0+(gy-BUILD_SIZE/2)*GRID;
+      const body=Matter.Bodies.rectangle(x,y,GRID,GRID,{
+        label:name,collisionFilter:{group},
+        render:{fillStyle:resolveColor(def.color)}
+      });
+      body.comp=structuredClone(def); // attach copy for runtime HP
+      compMap.set(body.id,body.comp);
+      parts.push(body);
+    });
+    // Constraints between touching squares
+    const constraints=[];
+    for(let i=0;i<parts.length;i++){
+      for(let j=i+1;j<parts.length;j++){
+        if(adjacent(parts[i],parts[j])){
+          constraints.push(Matter.Constraint.create({bodyA:parts[i],bodyB:parts[j],stiffness:1}));
+        }
+      }
+    }
+    const bot= Matter.Body.create({parts,collisionFilter:{group},label:isPlayer?'player':'ai'});
+    Matter.World.add(this.world,[bot,...constraints]);
+    // health bars map
+    parts.forEach(p=>addHealthBar(p,this.canvas));
+    return {body:bot,parts,compMap,isPlayer};
+  }
+  /* Simple pre-built AI design */
+  buildAIBot(x,y){
+    const basic=[
+      {name:'Control Unit',gx:0,gy:0},
+      {name:'Metal Beam',gx:1,gy:0},{name:'Metal Beam',gx:-1,gy:0},
+      {name:'Large Wheel',gx:1,gy:1},{name:'Large Wheel',gx:-1,gy:1},
+      {name:'Electric Motor',gx:1,gy:-1},{name:'Electric Motor',gx:-1,gy:-1},
+      {name:'Spinner Blade',gx:0,gy:-1},
+      {name:'Large Battery',gx:0,gy:1}
+    ];
+    return this.buildBot(JSON.stringify(basic),x,y,false);
+  }
+  /* Link collision events to damage */
+  bindDamage(){
+    Matter.Events.on(this.engine,'collisionStart',e=>{
+      e.pairs.forEach(pair=>{
+        const {bodyA,bodyB}=pair;
+        [bodyA,bodyB].forEach((b,i)=>{
+          const other=i?bodyA:bodyB;
+          if(b.comp){
+            const vel=pair.collision.penetration; // vector magnitude ~ impact
+            const dmg=Math.min(5,Math.abs(vel.x)+Math.abs(vel.y))*0.5;
+            b.comp.hp-=dmg;
+            updateHealthBar(b,this.canvas);
+            this.spawnSparks(pair.collision.supports[0].x,pair.collision.supports[0].y);
+            if(b.comp.hp<=0){
+              this.breakPart(b);
+            }
+            // Extra weapon damage if other part is weapon with spin etc.
+            if(other.comp && /weapon/.test(other.comp.type)){
+              b.comp.hp-=other.comp.special.damage*5;
+            }
+          }
+        });
+      });
+    });
+  }
+  breakPart(body){
+    // detach from composite
+    Matter.Composite.remove(this.world,body);
+    // Turn into debris with restitution
+    body.collisionFilter.group=0;
+    body.frictionAir=0.05;
+    body.render.opacity=0.5;
+    // Remove health bar
+    removeHealthBar(body);
+    // Check if core destroyed -> end game
+    if(body.label==='Control Unit'){
+      this.endGame(body.isPlayer?'lose':'win');
+    }
+  }
+  /* Control bindings (WASD/arrows + space) */
+  initControls(){
+    this.keys={};window.addEventListener('keydown',e=>this.keys[e.code]=true);
+    window.addEventListener('keyup',e=>this.keys[e.code]=false);
+  }
+  /* Main game loop for controls, AI, particles */
+  gameLoop(){
+    // Player driving
+    const speed=0.002,turn=0.0002;
+    if(this.keys['KeyW']||this.keys['ArrowUp'])Matter.Body.applyForce(this.player.body,this.player.body.position,{x:Math.cos(this.player.body.angle)*speed,y:Math.sin(this.player.body.angle)*speed});
+    if(this.keys['KeyS']||this.keys['ArrowDown'])Matter.Body.applyForce(this.player.body,this.player.body.position,{x:-Math.cos(this.player.body.angle)*speed,y:-Math.sin(this.player.body.angle)*speed});
+    if(this.keys['KeyA']||this.keys['ArrowLeft'])Matter.Body.setAngularVelocity(this.player.body,-0.04);
+    if(this.keys['KeyD']||this.keys['ArrowRight'])Matter.Body.setAngularVelocity(this.player.body,0.04);
+    // Weapon activation (spinner/hammers share simple impulse)
+    if(this.keys['Space']||this.keys['KeyJ']){
+      this.player.parts.filter(p=>p.label==='Spinner Blade').forEach(p=>Matter.Body.setAngularVelocity(p,0.5));
+      // hammer or flipper could be implemented similarly with constraints
+    }
+    // AI simple chase
+    const dir= Matter.Vector.sub(this.player.body.position,this.enemy.body.position);
+    const norm= Matter.Vector.normalise(dir);
+    Matter.Body.applyForce(this.enemy.body,this.enemy.body.position,{x:norm.x*speed*0.7,y:norm.y*speed*0.7});
+    // Spin weapon always on
+    this.enemy.parts.filter(p=>p.label==='Spinner Blade').forEach(p=>Matter.Body.setAngularVelocity(p,0.5));
+
+    // Particle fx update
+    this.updateParticles();
+
+    // Continue loop if not finished
+    if(!this.finished)requestAnimationFrame(()=>this.gameLoop());
+  }
+  /* Sparks */
+  spawnSparks(x,y){
+    for(let i=0;i<8;i++){
+      this.particles.push({x,y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,l:20});
+    }
+  }
+  updateParticles(){
+    const fx=this.fxCtx;fx.clearRect(0,0,this.width,this.height);
+    this.particles.forEach(p=>{
+      fx.fillStyle='#ffa200';fx.fillRect(p.x,p.y,2,2);
+      p.x+=p.vx;p.y+=p.vy;p.l--;
+    });
+    this.particles=this.particles.filter(p=>p.l>0);
+  }
+  /* Finish */
+  endGame(state){
+    this.finished=true;
+    document.getElementById('modalText').innerHTML=state==='win'?'🏆 You Win!':'💀 You Lose!';
+    document.getElementById('modal').style.display='flex';
+    Matter.Render.stop(this.render);Matter.Runner.stop(this.runner);
+  }
+}
+/* Helper – component adjacency in grid units */
+function adjacent(a,b){
+  const dx=Math.abs(a.position.x-b.position.x)/GRID;
+  const dy=Math.abs(a.position.y-b.position.y)/GRID;
+  return (dx+dy)===1;
+}
+/* Resolve CSS var() color or raw */
+function resolveColor(col){
+  if(col.startsWith('var(')){
+    return getComputedStyle(document.body).getPropertyValue(col.slice(4,-1)).trim()||'#888';
+  }
+  return col;
+}
+/*──────────────── 5. UI HEALTH BARS & FX ────────────────*/
+function addHealthBar(body,canvas){
+  const bar=document.createElement('div');bar.className='health-bar';canvas.parentNode.appendChild(bar);
+  body.healthEl=bar;updateHealthBar(body,canvas);
+}
+function updateHealthBar(body,canvas){
+  if(!body.healthEl)return;
+  const rect=canvas.getBoundingClientRect();
+  const hp=body.comp.hp/body.comp.maxHp;
+  body.healthEl.style.width=`${GRID*hp}px`;
+  body.healthEl.style.left=`${rect.left+body.position.x-GRID/2}px`;
+  body.healthEl.style.top=`${rect.top+body.position.y-GRID/2-6}px`;
+  body.healthEl.style.background=`hsl(${hp*120},100%,50%)`;
+}
+function removeHealthBar(body){if(body.healthEl)body.healthEl.remove();}
+
+/*──────────────── 6. APP STARTUP & BUTTONS ──────────────*/
+let battle=null;
+document.getElementById('modeBtn').onclick=()=>{
+  if(battle){location.reload();return;}
+  // Validate bot & launch
+  if(workshop.components.length===0){alert('Design a bot first!');return;}
+  const design=workshop.exportDesign();
+  document.getElementById('buildCanvas').style.display='none';
+  document.getElementById('build-grid').style.display='none';
+  battle=new Battle(design);
+  document.getElementById('modeBtn').textContent='Restart';
+};
+document.getElementById('clearBtn').onclick=()=>{workshop.components=[];workshop.render();workshop.updateStats();};
+document.getElementById('saveBtn').onclick=async()=>{
+  const name=prompt('Name this design:');if(!name)return;
+  await db.designs.put({name,data:workshop.exportDesign()});
+  alert('Saved!');
+};
+document.getElementById('loadBtn').onclick=async()=>{
+  const list=await db.designs.toArray();
+  const names=list.map(d=>d.name).join('\n');
+  const name=prompt('Saved designs:\n'+names+'\n\nType name to load:');
+  const rec=list.find(d=>d.name===name);if(rec)workshop.importDesign(rec.data);
+};
+</script>
+</body>
+</html>
