@@ -1667,6 +1667,241 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--secondary-blue);
         }
+
+        /* Mobile Toggle Utilities */
+        .mobile-only { display: none !important; }
+        .desktop-only { display: block; } /* Default display, adjust if element is naturally flex/inline etc. */
+
+
+        @media (max-width: 768px) {
+            .mobile-only { display: block !important; } /* Or flex, inline-flex etc. as needed */
+            .desktop-only { display: none !important; }
+
+            .header-center {
+                display: none !important; /* Hide Save, Load, Undo, Redo */
+            }
+            .header-right .notification-indicator {
+                display: none !important; /* Hide notification bell */
+            }
+            .header-right #settingsBtn {
+                display: none !important; /* Hide settings button */
+            }
+
+            .mobile-toggle-btn { /* Style for all mobile-specific toggle buttons in the header */
+                display: inline-flex !important;
+                padding: 10px;
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 18px; /* Make icons/emojis larger */
+                justify-content: center; /* Center icon/emoji */
+                align-items: center;   /* Center icon/emoji */
+                /* Simple tooltip for mobile toggle text if needed, otherwise rely on aria-label */
+            }
+            .mobile-toggle-btn .tooltiptext {
+                visibility: hidden; /* Basic tooltip, can be enhanced */
+                width: 60px;
+                background-color: black;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 2px 0;
+                position: absolute;
+                z-index: 1;
+                bottom: 125%; /* Position above the button */
+                left: 50%;
+                margin-left: -30px; /* Use half of the width (60/2 = 30), to center it */
+            }
+            .mobile-toggle-btn:hover .tooltiptext {
+                visibility: visible;
+            }
+
+
+            .component-palette, .stats-panel {
+                position: fixed;
+                top: 60px; /* Match mobile header height */
+                bottom: 0;
+                width: 280px; /* Or min(280px, 90vw) or similar */
+                max-width: 90vw;
+                z-index: 2000;
+                transition: transform 0.3s ease-in-out;
+                background-color: var(--dark-surface); /* Ensure background */
+                overflow-y: auto; /* Ensure scrollability */
+                border-right: 1px solid var(--glass-border); /* Re-add border if removed by other styles */
+                border-left: 1px solid var(--glass-border);
+            }
+
+            .component-palette {
+                left: 0;
+                transform: translateX(-100%);
+                border-left: none; /* No left border when on the left edge */
+            }
+            .stats-panel {
+                right: 0;
+                transform: translateX(100%);
+                border-right: none; /* No right border when on the right edge */
+            }
+
+            .component-palette.panel-visible,
+            .stats-panel.panel-visible {
+                transform: translateX(0);
+            }
+
+            .build-area {
+                margin-left: 0;
+                margin-right: 0;
+                width: 100vw; /* Ensure it takes full viewport width */
+                /* transition: margin 0.3s ease-in-out; Optional: if you want build area to shift */
+            }
+            /* Optional: If build area should shrink when a panel is open */
+            /*
+            .build-area.left-panel-visible {
+                margin-left: 280px; // Match panel width
+            }
+            .build-area.right-panel-visible {
+                margin-right: 280px; // Match panel width
+            }
+            */
+
+            /* Build Toolbar Button Touch Targets */
+            .build-toolbar { /* Ensure toolbar itself has enough space if buttons grow */
+                padding: 5px;
+                height: auto; /* Allow height to adjust to content */
+            }
+            .build-toolbar .toolbar-btn {
+                padding: 10px;
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 14px; /* Ensure icon/text is legible */
+            }
+            .build-toolbar .toolbar-btn .btn-icon {
+                font-size: 18px; /* Increase icon size if needed */
+            }
+
+            .zoom-controls .zoom-btn {
+                padding: 8px;
+                min-width: 40px;
+                min-height: 40px;
+                font-size: 18px; /* Larger + / - signs */
+            }
+             .zoom-controls .zoom-level {
+                padding: 0 5px; /* Add some padding if it feels tight */
+            }
+
+            /* Battle Controls Touch Targets */
+            .battle-controls .control-key {
+                padding: 10px;
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 14px; /* Increased font size for key labels */
+            }
+            .battle-controls .control-row {
+                gap: 10px; /* Increased gap between keys */
+            }
+
+            /* Main Scene Area Adjustments */
+            .builder-mode, .battle-mode {
+                margin-top: 60px; /* Match mobile header height */
+                padding-left: 5px;
+                padding-right: 5px;
+                width: 100%; /* Ensure full width, box-sizing should handle padding */
+                box-sizing: border-box;
+                height: calc(100vh - 60px); /* Full viewport height minus header */
+            }
+
+            .build-area {
+                /* Remove horizontal padding if it's meant to be handled by children or full-bleed */
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            /* .battle-arena should expand naturally if not constrained by fixed dimensions or problematic flex settings.
+               It's a direct child of .battle-mode which is now full height.
+               Ensure its canvas is responsive (Matter.js typically handles this if options are set right).
+            */
+
+            /* Side Panel Font Size Adjustments */
+            .component-palette .palette-title {
+                font-size: 16px;
+            }
+            .component-palette .filter-btn {
+                font-size: 10px;
+                padding: 4px 6px; /* Adjusted padding */
+            }
+            .component-palette .search-input { /* Assuming this is the search within palette */
+                font-size: 13px;
+                padding: 10px 12px; /* Adjusted padding */
+            }
+            .component-palette .section-header h3 {
+                font-size: 14px;
+            }
+            /* .component-palette .component-name was already adjusted in a previous step to 13px */
+            /* .component-palette .component-stats .stat-badge was already adjusted to 10px */
+
+            .stats-panel .stats-title { /* Already adjusted to 16px in a previous step */
+                font-size: 16px;
+            }
+            .stats-panel .stats-section h3 { /* Already adjusted to 14px */
+                font-size: 14px;
+            }
+            .stats-panel .stats-section .section-icon { /* If it's text/emoji based */
+                 font-size: 12px; /* Adjust if needed, ensure it fits new h3 size */
+            }
+            .stats-panel .stat-item .stat-label,
+            .stats-panel .stat-item .stat-value { /* Already adjusted to 12px */
+                font-size: 13px; /* Target: 13px */
+            }
+            .stats-panel .stat-indicator {
+                font-size: 10px;
+                padding: 2px 4px;
+            }
+            .stats-panel .component-list-name {
+                font-size: 12px;
+            }
+            .stats-panel .component-list-health {
+                font-size: 10px;
+            }
+            .stats-panel .action-buttons .btn { /* For buttons like Clear, Load Default/Custom */
+                font-size: 13px;
+                padding: 10px 12px; /* Adjusted padding from default .btn */
+                min-height: 40px; /* Ensure touch target */
+            }
+            /* Ensure search-input in stats-panel (botNameInput) is also targeted if different from palette's */
+            .stats-panel .search-input { /* e.g. #botNameInput */
+                font-size: 13px;
+                padding: 10px 12px; /* Adjusted padding */
+            }
+
+
+            /* Mobile Quick Actions Bar */
+            .mobile-quick-actions-bar {
+                display: flex;
+                justify-content: space-evenly;
+                align-items: center;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 12px 10px;
+                background: var(--dark-elevated);
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+                z-index: 1900;
+            }
+            .mobile-quick-actions-bar .btn {
+                padding: 10px 15px;
+                min-height: 44px;
+                font-size: 14px;
+                flex-grow: 1;
+                margin: 0 5px;
+                max-width: 45%;
+            }
+            .mobile-quick-actions-bar .btn .btn-icon {
+                margin-right: 8px;
+            }
+
+            .build-viewport {
+                padding-bottom: 80px; /* Adjust based on mobile-quick-actions-bar height */
+            }
+        }
     </style>
 </head>
 <body>
@@ -1679,6 +1914,7 @@
                     <h1>Bot Forge & Fight</h1>
                 </div>
                 <div class="mode-indicator" id="modeIndicator">Builder Mode</div>
+                <button class="toolbar-btn mobile-toggle-btn" id="toggleLeftPanelBtn" aria-label="Toggle Component Palette" style="display: none; margin-left: 10px;">🧩<span class="tooltiptext">Palette</span></button>
             </div>
             
             <div class="header-center">
@@ -1703,6 +1939,8 @@
             </div>
             
             <div class="header-right">
+                <button class="toolbar-btn mobile-toggle-btn" id="mobileMenuIconBtn" aria-label="Open Menu" style="display: none;">☰</button>
+                <button class="toolbar-btn mobile-toggle-btn" id="toggleRightPanelBtn" aria-label="Toggle Stats Panel" style="display: none; margin-right: 10px;">📊<span class="tooltiptext">Stats</span></button>
                 <div class="notification-indicator">
                     <span class="btn-icon">🔔</span>
                     <div class="notification-badge">3</div>
@@ -1711,6 +1949,10 @@
                     <span class="btn-icon">⚙️</span>
                     Settings
                 </button>
+            </div>
+            <div class="mobile-quick-actions-bar" id="mobileQuickActionsBar" style="display: none;">
+                <button class="btn btn-secondary" id="mobileRandomizeBtn"><span class="btn-icon">🎲</span> Randomize</button>
+                <button class="btn btn-primary" id="mobileStartBattleBtn" disabled><span class="btn-icon">⚔️</span> Start Battle!</button>
             </div>
         </div>
 
@@ -3043,6 +3285,7 @@
                 const startBattleBtn = document.getElementById('startBattleBtn');
                 startBattleBtn.disabled = !canStartBattle;
                 
+                let titleReason = '';
                 if (!canStartBattle) {
                     let reasons = [];
                     if (!hasControlUnit) reasons.push('Need Control Unit');
@@ -3050,10 +3293,17 @@
                     if (!withinPowerLimit) reasons.push('Insufficient power');
                     if (!hasMovement) reasons.push('Need motor for movement');
                     if (!hasEnoughComponents) reasons.push('Need more components');
-                    
-                    startBattleBtn.title = `Cannot start battle: ${reasons.join(', ')}`;
+                    titleReason = `Cannot start battle: ${reasons.join(', ')}`;
+                    startBattleBtn.title = titleReason;
                 } else {
-                    startBattleBtn.title = 'Start the battle!';
+                    titleReason = 'Start the battle!';
+                    startBattleBtn.title = titleReason;
+                }
+
+                const mobileStartBattleBtnInstance = document.getElementById('mobileStartBattleBtn');
+                if (mobileStartBattleBtnInstance) {
+                    mobileStartBattleBtnInstance.disabled = startBattleBtn.disabled;
+                    mobileStartBattleBtnInstance.title = titleReason;
                 }
             }
 
@@ -5033,6 +5283,67 @@
 
         // Start the game
         initializeGame();
+
+        // Collapsible Panel Logic
+        const toggleLeftPanelBtn = document.getElementById('toggleLeftPanelBtn');
+        const toggleRightPanelBtn = document.getElementById('toggleRightPanelBtn');
+        const componentPalette = document.querySelector('.component-palette');
+        const statsPanel = document.querySelector('.stats-panel');
+        // const buildViewport = document.getElementById('buildViewport'); // For click outside, use document.body
+
+        if (toggleLeftPanelBtn && componentPalette) {
+            toggleLeftPanelBtn.addEventListener('click', (e) => {
+                componentPalette.classList.toggle('panel-visible');
+                statsPanel.classList.remove('panel-visible'); // Close other panel
+                e.stopPropagation();
+            });
+        }
+
+        if (toggleRightPanelBtn && statsPanel) {
+            toggleRightPanelBtn.addEventListener('click', (e) => {
+                statsPanel.classList.toggle('panel-visible');
+                componentPalette.classList.remove('panel-visible'); // Close other panel
+                e.stopPropagation();
+            });
+        }
+
+        // Click outside to close
+        document.body.addEventListener('click', (e) => {
+            if (componentPalette && componentPalette.classList.contains('panel-visible') &&
+                !componentPalette.contains(e.target) && !toggleLeftPanelBtn.contains(e.target)) {
+                componentPalette.classList.remove('panel-visible');
+            }
+            if (statsPanel && statsPanel.classList.contains('panel-visible') &&
+                !statsPanel.contains(e.target) && !toggleRightPanelBtn.contains(e.target)) {
+                statsPanel.classList.remove('panel-visible');
+            }
+        });
+
+        // Prevent clicks within panels from closing themselves (if click outside logic is too aggressive)
+        if (componentPalette) {
+            componentPalette.addEventListener('click', e => e.stopPropagation());
+        }
+        if (statsPanel) {
+            statsPanel.addEventListener('click', e => e.stopPropagation());
+        }
+
+        // Mobile Quick Actions Bar Logic
+        const mobileRandomizeBtn = document.getElementById('mobileRandomizeBtn');
+        if (mobileRandomizeBtn) {
+            mobileRandomizeBtn.addEventListener('click', () => {
+                const originalRandomizeBtn = document.getElementById('randomizeBtn');
+                if (originalRandomizeBtn) originalRandomizeBtn.click();
+            });
+        }
+
+        const mobileStartBattleBtn = document.getElementById('mobileStartBattleBtn');
+        if (mobileStartBattleBtn) {
+            mobileStartBattleBtn.addEventListener('click', () => {
+                const originalStartBattleBtn = document.getElementById('startBattleBtn');
+                if (originalStartBattleBtn) originalStartBattleBtn.click();
+            });
+        }
+
     </script>
 </body>
 </html>
