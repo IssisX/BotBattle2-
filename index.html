@@ -1141,6 +1141,76 @@
                 border-color: var(--accent-orange);
                 background: rgba(255, 107, 53, 0.1);
             }
+
+            populateCustomBotLoadUI() {
+                const container = document.getElementById('customBotsLoadContainer');
+                if (!container) {
+                    console.warn('customBotsLoadContainer not found in the DOM.');
+                    return;
+                }
+                container.innerHTML = ''; // Clear existing buttons
+
+                const savedBots = JSON.parse(localStorage.getItem('customBattleBots')) || [];
+
+                if (savedBots.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted); font-style: italic; text-align: center;">No custom bots saved.</p>';
+                    return;
+                }
+
+                savedBots.forEach(bot => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-secondary'; // Differentiate from default load
+                    btn.textContent = bot.name;
+                    btn.title = `Load ${bot.name}`;
+                    btn.addEventListener('click', () => gameManager.loadCustomBot(bot.name));
+                    container.appendChild(btn);
+                });
+            }
+
+            addBattleLogEntry(message, type = 'info') {
+                const battleLogDiv = document.getElementById('battleLog');
+                if (!battleLogDiv) {
+                    console.warn('battleLogDiv not found in DOM for logging.');
+                    return;
+                }
+
+                const entry = document.createElement('p');
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`; // Added timestamp
+
+                switch (type) {
+                    case 'damage':
+                        entry.style.color = 'var(--warning-yellow)'; // Changed from danger-red to warning-yellow for damage
+                        break;
+                    case 'critical':
+                        entry.style.color = 'var(--danger-red)';
+                        break;
+                    case 'success':
+                        entry.style.color = 'var(--success-green)';
+                        break;
+                    case 'info':
+                    default:
+                        entry.style.color = 'var(--text-secondary)';
+                        break;
+                }
+
+                // Add a little fade in effect
+                entry.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    entry.style.transition = 'opacity 0.3s ease';
+                    entry.style.opacity = '1';
+                });
+
+
+                battleLogDiv.insertBefore(entry, battleLogDiv.firstChild);
+
+                // Limit log entries
+                while (battleLogDiv.children.length > 20) {
+                    const oldEntry = battleLogDiv.lastChild;
+                    if (oldEntry) { // Check if lastChild exists before removing
+                         battleLogDiv.removeChild(oldEntry);
+                    }
+                }
+            }
         }
 
         .drop-zone {
@@ -1336,24 +1406,156 @@
             }
             
             .component-palette {
-                width: 220px;
-                padding: 20px 15px;
+                width: 200px; /* Further reduce width */
+                padding: 15px 10px;
+                font-size: 12px; /* Smaller font for items */
+            }
+            .component-name {
+                font-size: 13px;
+            }
+            .component-stats {
+                font-size: 10px;
             }
             
             .stats-panel {
-                width: 250px;
-                padding: 20px 15px;
+                width: 200px; /* Further reduce width */
+                padding: 15px 10px;
             }
-            
+            .stats-title {
+                font-size: 16px;
+            }
+            .stats-section h3 {
+                font-size: 14px;
+            }
+            .stat-label, .stat-value {
+                font-size: 12px;
+            }
+
+            .builder-mode {
+                /* Consider flex-direction: column; if panels are still too wide or overlap content */
+            }
+
+            #battleLogContainer {
+                width: 200px; /* Reduce width */
+                height: 100px; /* Reduce height */
+                bottom: 70px; /* Adjust if overlapping with controls */
+                left: 10px;
+                font-size: 10px;
+            }
+            #battleLogContainer h4 {
+                font-size: 12px;
+                margin-bottom: 5px;
+                padding-bottom: 5px;
+            }
+
+            .battle-controls {
+                padding: 10px;
+                bottom: 10px; /* Adjust if overlapping */
+                left: 10px;
+            }
+            .controls-title {
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+            .control-row {
+                font-size: 10px;
+                gap: 8px;
+            }
+            .control-key {
+                padding: 3px 6px;
+            }
+
+
             .game-over {
-                padding: 30px;
-                margin: 20px;
+                padding: 20px; /* Reduce padding */
+                margin: 10px;
             }
             
             .game-over h2 {
-                font-size: 32px;
+                font-size: 28px; /* Reduce font size */
+            }
+            .game-over p {
+                font-size: 14px;
             }
         }
+
+        /* Media query for very small screens (e.g. mobile phones) */
+        @media (max-width: 480px) {
+            .header-center { /* Hide save/load/undo/redo buttons in header */
+                display: none;
+            }
+            .component-palette {
+                /* Could be made absolute positioned and toggled with a button */
+                width: 100%;
+                position: absolute;
+                left: -100%; /* Hidden by default */
+                z-index: 2000;
+                height: calc(100vh - 60px); /* Full height minus header */
+                transition: left 0.3s ease-in-out;
+            }
+            .component-palette.open {
+                left: 0;
+            }
+            /* A button would be needed to toggle this .open class */
+
+            .stats-panel {
+                /* Could be made absolute positioned and toggled */
+                width: 100%;
+                position: absolute;
+                right: -100%; /* Hidden by default */
+                z-index: 2000;
+                height: calc(100vh - 60px);
+                transition: right 0.3s ease-in-out;
+            }
+            .stats-panel.open {
+                right: 0;
+            }
+             /* A button would be needed to toggle this .open class */
+
+            .build-area {
+                flex: 1 1 100%; /* Take full width when panels are hidden/absolute */
+            }
+
+            #battleLogContainer {
+                width: calc(100% - 20px); /* Full width minus padding */
+                max-width: 280px;
+                height: 80px;
+                bottom: 60px; /* Above controls */
+                left: 10px;
+                right: 10px;
+                font-size: 9px;
+            }
+
+            .battle-controls {
+                width: calc(100% - 20px);
+                max-width: 280px;
+                padding: 8px;
+                bottom: 5px;
+                left: 10px;
+                right: 10px;
+            }
+            .control-row {
+                gap: 5px;
+                flex-wrap: wrap; /* Allow keys to wrap */
+            }
+             .hud-panel {
+                min-width: 100px;
+                padding: 8px 10px;
+            }
+            .hud-bot-name {
+                font-size: 12px;
+            }
+            .health-bar {
+                height: 8px;
+            }
+            .health-text {
+                font-size: 8px;
+            }
+            .battle-timer {
+                font-size: 18px;
+            }
+        }
+
 
         /* Advanced Animation System */
         @keyframes fadeInUp {
@@ -1807,8 +2009,19 @@
 
             <!-- Enhanced Stats Panel -->
             <div class="stats-panel animate-slide-in-right">
+                <div class="stats-section">
+                    <h3><span class="section-icon">🏷️</span>Bot Name</h3>
+                    <input type="text" id="botNameInput" class="search-input" placeholder="Enter Bot Name" style="margin-top: 10px;">
+                </div>
                 <div class="stats-header">
                     <div class="stats-title">Bot Analytics</div>
+                </div>
+
+                <div class="stats-section">
+                    <h3><span class="section-icon">📂</span>Load Custom Bot</h3>
+                    <div class="action-buttons" id="customBotsLoadContainer" style="flex-direction: column; gap: 10px; max-height: 150px; overflow-y: auto; padding-top: 10px;">
+                        <!-- Dynamically populated -->
+                    </div>
                 </div>
 
                 <div class="stats-section">
@@ -1866,10 +2079,26 @@
 
                 <div class="stats-section">
                     <h3>
+                        <span class="section-icon">🤖</span>
+                        Load Default Bot
+                    </h3>
+                    <div class="action-buttons" id="defaultBotsContainer" style="flex-direction: column; gap: 10px;">
+                        <!-- Buttons dynamically added -->
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3>
                         <span class="section-icon">⚡</span>
                         Quick Actions
                     </h3>
                     <div class="action-buttons">
+                        <div style="margin-bottom: 10px;">
+                            <label for="opponentSelect" style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 5px;">Select Opponent:</label>
+                            <select id="opponentSelect" class="search-input" style="width: 100%;">
+                                <!-- Options will be dynamically added here -->
+                            </select>
+                        </div>
                         <button class="btn btn-danger" id="clearBtn">
                             <span class="btn-icon">🗑️</span>
                             Clear All
@@ -1913,6 +2142,11 @@
 
             <div class="battle-arena" id="battleArena">
                 <div class="particles-container" id="battleParticles"></div>
+            </div>
+
+            <div id="battleLogContainer" style="position: absolute; bottom: 100px; /* Adjusted bottom to avoid overlap if controls are tall */ left: 20px; width: 300px; height: 150px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--border-radius); padding: 10px; overflow-y: scroll; font-size: 12px; color: var(--text-secondary); z-index: 150; box-shadow: var(--shadow-heavy);">
+                <h4 style="color: var(--text-primary); margin-top:0; margin-bottom: 8px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">Battle Log</h4>
+                <div id="battleLog"></div>
             </div>
 
             <div class="battle-controls">
@@ -2220,11 +2454,56 @@
         };
 
         // Enhanced Game State Management
+
+        const DEFAULT_BOTS = {
+            "TankBot": {
+                name: "TankBot",
+                description: "A slow but sturdy bot with heavy armor and a powerful hammer.",
+                components: [
+                    { type: 'control-unit', gridX: 2, gridY: 1 },
+                    { type: 'heavy-frame', gridX: 2, gridY: 0 }, { type: 'heavy-frame', gridX: 2, gridY: 2 }, { type: 'heavy-frame', gridX: 1, gridY: 1 }, { type: 'heavy-frame', gridX: 3, gridY: 1 },
+                    { type: 'armor-plating', gridX: 1, gridY: 0 }, { type: 'armor-plating', gridX: 3, gridY: 0 },
+                    { type: 'large-wheel', gridX: 0, gridY: 0 }, { type: 'large-wheel', gridX: 4, gridY: 0 },
+                    { type: 'electric-motor', gridX: 1, gridY: 0 },
+                    { type: 'electric-motor', gridX: 3, gridY: 0 },
+                    { type: 'hammer-arm', gridX: 2, gridY: 0 },
+                    { type: 'large-battery', gridX: 2, gridY: 2 }
+                ]
+            },
+            "SpeedyBot": {
+                name: "SpeedyBot",
+                description: "A light and agile bot designed for quick strikes with its drill.",
+                components: [
+                    { type: 'control-unit', gridX: 1, gridY: 1 },
+                    { type: 'light-frame', gridX: 1, gridY: 0 }, { type: 'light-frame', gridX: 1, gridY: 2 }, { type: 'light-frame', gridX: 0, gridY: 1 }, { type: 'light-frame', gridX: 2, gridY: 1 },
+                    { type: 'small-wheel', gridX: 0, gridY: 0 }, { type: 'small-wheel', gridX: 2, gridY: 0 }, { type: 'small-wheel', gridX: 0, gridY: 2 }, { type: 'small-wheel', gridX: 2, gridY: 2 },
+                    { type: 'electric-motor', gridX: 0, gridY: 1 },
+                    { type: 'electric-motor', gridX: 2, gridY: 1 },
+                    { type: 'drill-spike', gridX: 1, gridY: 0 },
+                    { type: 'small-battery', gridX: 1, gridY: 2 }
+                ]
+            },
+            "BalancedBot": {
+                name: "BalancedBot",
+                description: "A versatile bot with a mix of speed, armor, and a spinning blade.",
+                components: [
+                    { type: 'control-unit', gridX: 1, gridY: 1 },
+                    { type: 'metal-beam', gridX: 1, gridY: 0 }, { type: 'metal-beam', gridX: 1, gridY: 2 }, { type: 'metal-beam', gridX: 0, gridY: 1 }, { type: 'metal-beam', gridX: 2, gridY: 1 },
+                    { type: 'large-wheel', gridX: 0, gridY: 0 }, { type: 'large-wheel', gridX: 2, gridY: 0 },
+                    { type: 'electric-motor', gridX: 0, gridY: 1 },
+                    { type: 'electric-motor', gridX: 2, gridY: 1 },
+                    { type: 'spinner-blade', gridX: 1, gridY: 0 },
+                    { type: 'small-battery', gridX: 1, gridY: 2 }
+                ]
+            }
+        };
+
         class GameStateManager {
             constructor() {
                 this.state = {
                     mode: 'builder',
                     bot: {
+                        name: '',
                         components: [],
                         totalWeight: 0,
                         powerUsage: 0,
@@ -2232,6 +2511,7 @@
                         combatRating: 0
                     },
                     battle: {
+                        selectedOpponentKey: 'TankBot', // Default opponent
                         engine: null,
                         render: null,
                         playerBot: null,
@@ -2275,6 +2555,95 @@
             removeEventListener(event, callback) {
                 if (this.listeners[event]) {
                     this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+                }
+            }
+
+            loadCustomBot(botNameToLoad) {
+                const savedBots = JSON.parse(localStorage.getItem('customBattleBots')) || [];
+                const botData = savedBots.find(b => b.name === botNameToLoad);
+
+                if (!botData) {
+                    uiManager.showNotification('Bot not found!', 'error');
+                    return;
+                }
+
+                const initialComponents = JSON.parse(JSON.stringify(gameState.state.bot.components));
+                const initialName = gameState.state.bot.name;
+
+                this.clearBot(true);
+                gameState.state.bot.components = [];
+
+                botData.components.forEach(savedComp => {
+                    const componentStats = COMPONENTS[savedComp.type];
+                    if (componentStats) {
+                        const newComponent = {
+                            id: savedComp.type + '-' + savedComp.gridX + '-' + savedComp.gridY + '-' + Date.now().toString(36) + Math.random().toString(36).substr(2),
+                            type: savedComp.type,
+                            name: componentStats.name,
+                            gridX: savedComp.gridX,
+                            gridY: savedComp.gridY,
+                            x: savedComp.gridX * CONFIG.GRID_SIZE,
+                            y: savedComp.gridY * CONFIG.GRID_SIZE,
+                            ...componentStats, // Spread base stats from COMPONENTS
+                            durability: componentStats.durability, // Reset to max durability
+                            maxDurability: componentStats.durability // Ensure maxDurability is from definition
+                            // Note: savedComp might have its own durability/maxDurability if we decide to save state, but for now, reset.
+                        };
+                        gameState.state.bot.components.push(newComponent);
+                    } else {
+                        console.warn(`Component type "${savedComp.type}" not found in COMPONENTS for ${botData.name}`);
+                    }
+                });
+
+                gameState.state.bot.name = botData.name;
+                const botNameInputElement = document.getElementById('botNameInput');
+                if (botNameInputElement) botNameInputElement.value = botData.name;
+
+                gameState.addHistoryAction({
+                    type: 'load_custom',
+                    botName: botData.name,
+                    loadedComponents: JSON.parse(JSON.stringify(gameState.state.bot.components)),
+                    previousComponents: initialComponents,
+                    previousName: initialName
+                });
+
+                gameState.updateBotStats();
+                this.renderBot();
+                uiManager.showNotification(botData.name + ' loaded!', 'success');
+            }
+
+            saveCustomBot() {
+                const botName = gameState.state.bot.name.trim() || ('MyBot-' + Date.now().toString(36) + Math.random().toString(36).substr(2));
+
+                if (gameState.state.bot.components.length === 0) {
+                    uiManager.showNotification('Cannot save an empty bot!', 'error');
+                    return;
+                }
+
+                const botToSave = {
+                    name: botName,
+                    components: JSON.parse(JSON.stringify(gameState.state.bot.components))
+                };
+
+                let savedBots = JSON.parse(localStorage.getItem('customBattleBots')) || [];
+
+                // Filter out any existing bot with the same name to prevent duplicates
+                savedBots = savedBots.filter(b => b.name !== botName);
+
+                savedBots.push(botToSave);
+                localStorage.setItem('customBattleBots', JSON.stringify(savedBots));
+
+                uiManager.showNotification(botName + ' saved!', 'success');
+
+                // Ensure botNameInput reflects the actual saved name
+                if (gameState.state.bot.name.trim() === '') {
+                    gameState.state.bot.name = botName;
+                    const botNameInputElement = document.getElementById('botNameInput');
+                    if (botNameInputElement) botNameInputElement.value = botName;
+                }
+
+                if (uiManager.populateCustomBotLoadUI) { // Check if method exists
+                    uiManager.populateCustomBotLoadUI();
                 }
             }
 
@@ -2362,6 +2731,33 @@
                             this.state.bot.components = [...action.components];
                         } else {
                             this.state.bot.components = [];
+                        }
+                        break;
+                    case 'load_default':
+                        if (undo) {
+                            this.state.bot.components = JSON.parse(JSON.stringify(action.previousComponents));
+                        } else {
+                            this.state.bot.components = JSON.parse(JSON.stringify(action.loadedComponents));
+                        }
+                        // Ensure gameManager is accessible here or use an event
+                        if (typeof gameManager !== 'undefined' && gameManager.renderBot) {
+                             gameManager.renderBot();
+                        }
+                        break;
+                    case 'load_custom':
+                        if (undo) {
+                            this.state.bot.components = JSON.parse(JSON.stringify(action.previousComponents));
+                            this.state.bot.name = action.previousName;
+                            const botNameInputUndo = document.getElementById('botNameInput');
+                            if (botNameInputUndo) botNameInputUndo.value = action.previousName;
+                        } else { // redo
+                            this.state.bot.components = JSON.parse(JSON.stringify(action.loadedComponents));
+                            this.state.bot.name = action.botName;
+                            const botNameInputRedo = document.getElementById('botNameInput');
+                            if (botNameInputRedo) botNameInputRedo.value = action.botName;
+                        }
+                        if (typeof gameManager !== 'undefined' && gameManager.renderBot) {
+                             gameManager.renderBot();
                         }
                         break;
                 }
@@ -3474,6 +3870,60 @@
                 }
             }
 
+            loadDefaultBot(botName) {
+                const initialComponentsBeforeLoad = JSON.parse(JSON.stringify(gameState.state.bot.components));
+                this.clearBot(true); // Skip confirmation when loading a default bot
+
+                const botData = DEFAULT_BOTS[botName];
+                if (!botData) {
+                    uiManager.showNotification(`Default bot "${botName}" not found.`, 'error');
+                    // Restore previous state if bot data not found
+                    gameState.state.bot.components = initialComponentsBeforeLoad;
+                    gameState.updateBotStats();
+                    this.renderBot();
+                    return;
+                }
+
+                gameState.state.bot.components = []; // Ensure it's clean
+
+                botData.components.forEach(defComp => {
+                    const componentStats = COMPONENTS[defComp.type];
+                    if (componentStats) {
+                        const newComponent = {
+                            id: `${botName}-${defComp.type}-${defComp.gridX}-${defComp.gridY}-${Date.now().toString(36)}${Math.random().toString(36).substr(2)}`,
+                            type: defComp.type,
+                            name: componentStats.name,
+                            gridX: defComp.gridX,
+                            gridY: defComp.gridY,
+                            x: defComp.gridX * CONFIG.GRID_SIZE,
+                            y: defComp.gridY * CONFIG.GRID_SIZE,
+                            mass: componentStats.mass,
+                            durability: componentStats.durability, // Current durability
+                            maxDurability: componentStats.durability, // Max durability
+                            powerDraw: componentStats.powerDraw,
+                            color: componentStats.color,
+                            category: componentStats.category,
+                            combatRating: componentStats.combatRating || 0,
+                            ...componentStats // Spread other stats like damage, range etc.
+                        };
+                        gameState.state.bot.components.push(newComponent);
+                    } else {
+                        console.warn(`Component type "${defComp.type}" not found in COMPONENTS for ${botName}`);
+                    }
+                });
+
+                gameState.addHistoryAction({
+                    type: 'load_default',
+                    botName: botName,
+                    loadedComponents: JSON.parse(JSON.stringify(gameState.state.bot.components)),
+                    previousComponents: initialComponentsBeforeLoad
+                });
+
+                gameState.updateBotStats();
+                this.renderBot();
+                uiManager.showNotification(`${botData.name} loaded!`, 'success');
+            }
+
             renderComponent(component) {
                 const element = document.createElement('div');
                 element.className = 'bot-component';
@@ -3583,24 +4033,80 @@
                 });
             }
 
-            clearBot() {
+            clearBot(skipConfirmation = false) {
                 if (gameState.state.bot.components.length === 0) return;
                 
-                if (confirm('Are you sure you want to clear all components?')) {
+                if (skipConfirmation || confirm('Are you sure you want to clear all components?')) {
                     gameState.addHistoryAction({
                         type: 'clear_all',
-                        components: [...gameState.state.bot.components]
+                        components: JSON.parse(JSON.stringify(gameState.state.bot.components))
                     });
                     
                     gameState.state.bot.components = [];
                     gameState.updateBotStats();
                     this.renderBot();
-                    uiManager.showNotification('Bot cleared', 'info');
+                    if (!skipConfirmation) {
+                        uiManager.showNotification('Bot cleared', 'info');
+                    }
                 }
             }
 
+            loadDefaultBot(botName) {
+                const initialComponentsBeforeLoad = JSON.parse(JSON.stringify(gameState.state.bot.components));
+                this.clearBot(true); // Skip confirmation when loading a default bot
+
+                const botData = DEFAULT_BOTS[botName];
+                if (!botData) {
+                    uiManager.showNotification(`Default bot "${botName}" not found.`, 'error');
+                    // Restore previous state if bot data not found
+                    gameState.state.bot.components = initialComponentsBeforeLoad;
+                    gameState.updateBotStats();
+                    this.renderBot();
+                    return;
+                }
+
+                gameState.state.bot.components = []; // Ensure it's clean
+
+                botData.components.forEach(defComp => {
+                    const componentStats = COMPONENTS[defComp.type];
+                    if (componentStats) {
+                        const newComponent = {
+                            id: `${botName}-${defComp.type}-${defComp.gridX}-${defComp.gridY}-${Date.now().toString(36)}${Math.random().toString(36).substr(2)}`,
+                            type: defComp.type,
+                            name: componentStats.name,
+                            gridX: defComp.gridX,
+                            gridY: defComp.gridY,
+                            x: defComp.gridX * CONFIG.GRID_SIZE,
+                            y: defComp.gridY * CONFIG.GRID_SIZE,
+                            mass: componentStats.mass,
+                            durability: componentStats.durability, // Current durability
+                            maxDurability: componentStats.durability, // Max durability
+                            powerDraw: componentStats.powerDraw,
+                            color: componentStats.color,
+                            category: componentStats.category,
+                            combatRating: componentStats.combatRating || 0,
+                            ...componentStats // Spread other stats like damage, range etc.
+                        };
+                        gameState.state.bot.components.push(newComponent);
+                    } else {
+                        console.warn(`Component type "${defComp.type}" not found in COMPONENTS for ${botName}`);
+                    }
+                });
+
+                gameState.addHistoryAction({
+                    type: 'load_default',
+                    botName: botName,
+                    loadedComponents: JSON.parse(JSON.stringify(gameState.state.bot.components)),
+                    previousComponents: initialComponentsBeforeLoad
+                });
+
+                gameState.updateBotStats();
+                this.renderBot();
+                uiManager.showNotification(`${botData.name} loaded!`, 'success');
+            }
+
             randomizeBot() {
-                this.clearBot();
+                this.clearBot(true); // Skip confirmation for randomize
                 
                 // Place control unit first
                 this.placeComponent('control-unit', 5, 5);
@@ -3778,6 +4284,18 @@
                 
                 this.battleState.startTime = Date.now();
                 gameState.state.battle.gameEnded = false;
+
+                // Clear battle log and add start message
+                const battleLogDiv = document.getElementById('battleLog');
+                if (battleLogDiv) battleLogDiv.innerHTML = '';
+                uiManager.addBattleLogEntry('Battle started!', 'info');
+
+                // Update player bot name in HUD
+                const playerBotNameElement = document.getElementById('playerBotName');
+                if (playerBotNameElement) {
+                    const botName = gameState.state.bot.name.trim() || 'Custom Bot';
+                    playerBotNameElement.textContent = botName;
+                }
             }
 
             createArenaWalls(engine) {
@@ -3820,9 +4338,38 @@
             }
 
             createEnemyBot() {
-                const enemyComponents = this.generateEnemyBot();
+                const opponentKey = gameState.state.battle.selectedOpponentKey || 'TankBot'; // Fallback just in case
+                const enemyBotData = DEFAULT_BOTS[opponentKey];
+
+                if (!enemyBotData) {
+                    console.error(`Opponent data for key "${opponentKey}" not found. Using TankBot as fallback.`);
+                    enemyBotData = DEFAULT_BOTS['TankBot'];
+                }
+
+                // Create component instances from definition (similar to loadDefaultBot)
+                const enemyComponents = enemyBotData.components.map(defComp => {
+                    const componentStats = COMPONENTS[defComp.type];
+                    return {
+                        id: `enemy-${defComp.type}-${defComp.gridX}-${defComp.gridY}-${Date.now().toString(36)}${Math.random().toString(36).substr(2)}`,
+                        type: defComp.type,
+                        name: componentStats.name,
+                        gridX: defComp.gridX, // Store original gridX for relative positioning if needed by createBattleBot
+                        gridY: defComp.gridY, // Store original gridY
+                        x: defComp.gridX * CONFIG.GRID_SIZE, // These x/y are relative to bot origin
+                        y: defComp.gridY * CONFIG.GRID_SIZE,
+                        mass: componentStats.mass,
+                        durability: componentStats.durability,
+                        maxDurability: componentStats.durability,
+                        powerDraw: componentStats.powerDraw,
+                        color: componentStats.color,
+                        category: componentStats.category,
+                        combatRating: componentStats.combatRating || 0,
+                        ...componentStats
+                    };
+                });
+
                 this.battleState.enemyBot = this.createBattleBot(
-                    enemyComponents,
+                    enemyComponents, // Use the processed components
                     CONFIG.ARENA_WIDTH - 200,
                     CONFIG.ARENA_HEIGHT / 2,
                     'enemy'
@@ -3831,93 +4378,24 @@
                 Matter.World.add(this.battleState.engine.world, this.battleState.enemyBot.composite);
             }
 
+            // generateEnemyBot() is no longer needed as we use DEFAULT_BOTS
+            /*
             generateEnemyBot() {
                 // Create a balanced enemy bot
                 return [
                     {
                         id: 'enemy-core',
-                        type: 'control-unit',
-                        name: 'Control Unit',
-                        gridX: 1, gridY: 1,
-                        x: CONFIG.GRID_SIZE, y: CONFIG.GRID_SIZE,
-                        mass: 2, durability: 100, maxDurability: 100,
-                        powerDraw: -50, color: '#ff6b6b'
-                    },
-                    {
-                        id: 'enemy-frame1',
-                        type: 'heavy-frame',
-                        name: 'Heavy Frame',
-                        gridX: 0, gridY: 1,
-                        x: 0, y: CONFIG.GRID_SIZE,
-                        mass: 5, durability: 80, maxDurability: 80,
-                        powerDraw: 0, color: '#696969'
-                    },
-                    {
-                        id: 'enemy-frame2',
-                        type: 'heavy-frame',
-                        name: 'Heavy Frame',
-                        gridX: 2, gridY: 1,
-                        x: CONFIG.GRID_SIZE * 2, y: CONFIG.GRID_SIZE,
-                        mass: 5, durability: 80, maxDurability: 80,
-                        powerDraw: 0, color: '#696969'
-                    },
-                    {
-                        id: 'enemy-motor1',
-                        type: 'electric-motor',
-                        name: 'Electric Motor',
-                        gridX: 0, gridY: 0,
-                        x: 0, y: 0,
-                        mass: 2, durability: 40, maxDurability: 40,
-                        powerDraw: 15, color: '#4ecdc4', torque: 100
-                    },
-                    {
-                        id: 'enemy-motor2',
-                        type: 'electric-motor',
-                        name: 'Electric Motor',
-                        gridX: 2, gridY: 0,
-                        x: CONFIG.GRID_SIZE * 2, y: 0,
-                        mass: 2, durability: 40, maxDurability: 40,
-                        powerDraw: 15, color: '#4ecdc4', torque: 100
-                    },
-                    {
-                        id: 'enemy-wheel1',
-                        type: 'large-wheel',
-                        name: 'Large Wheel',
-                        gridX: 0, gridY: 2,
-                        x: 0, y: CONFIG.GRID_SIZE * 2,
-                        mass: 2, durability: 50, maxDurability: 50,
-                        powerDraw: 0, color: '#4ecdc4', grip: 1.0
-                    },
-                    {
-                        id: 'enemy-wheel2',
-                        type: 'large-wheel',
-                        name: 'Large Wheel',
-                        gridX: 2, gridY: 2,
-                        x: CONFIG.GRID_SIZE * 2, y: CONFIG.GRID_SIZE * 2,
-                        mass: 2, durability: 50, maxDurability: 50,
-                        powerDraw: 0, color: '#4ecdc4', grip: 1.0
-                    },
-                    {
-                        id: 'enemy-weapon',
-                        type: 'spinner-blade',
-                        name: 'Spinner Blade',
-                        gridX: 1, gridY: 0,
-                        x: CONFIG.GRID_SIZE, y: 0,
-                        mass: 4, durability: 50, maxDurability: 50,
-                        powerDraw: 30, color: '#ff4757',
-                        damage: 25, range: 80
-                    },
-                    {
-                        id: 'enemy-battery',
-                        type: 'large-battery',
-                        name: 'Large Battery',
-                        gridX: 1, gridY: 2,
-                        x: CONFIG.GRID_SIZE, y: CONFIG.GRID_SIZE * 2,
-                        mass: 5, durability: 40, maxDurability: 40,
-                        powerDraw: -80, color: '#ffd93d'
-                    }
-                ];
-            }
+            */
+            // The rest of generateEnemyBot is removed. I will remove it completely in a separate step if this test passes.
+            // For now, just commenting out the start to make the function unusable.
+            // ... (rest of generateEnemyBot content) ...
+            // Keeping the old generateEnemyBot structure for now to avoid large deletions in one go,
+            // but it will be replaced by the dynamic loading above.
+            // The actual call to generateEnemyBot() is removed from createEnemyBot().
+            // generateEnemyBot_OLD() { // Renamed to avoid being called
+            // The body of the old generateEnemyBot_OLD function is now removed.
+            // }
+            */
 
             createBattleBot(components, startX, startY, team) {
                 const composite = Matter.Composite.create();
@@ -4185,6 +4663,14 @@
                     }
 
                     if (damage > 0 && targetBody) {
+                        const attacker = (bodyA.componentData.type && bodyA.componentData.type.includes('weapon')) ? bodyA : bodyB;
+                        const defender = targetBody;
+
+                        // Log damage
+                        const attackerName = attacker.componentData.team === 'player' ? "Player's " + attacker.componentData.name : "Enemy's " + attacker.componentData.name;
+                        const defenderName = defender.componentData.team === 'player' ? "Player's " + defender.componentData.name : "Enemy's " + defender.componentData.name;
+                        uiManager.addBattleLogEntry(`${attackerName} hit ${defenderName} for ${damage} damage.`, 'damage');
+
                         this.dealDamage(targetBody, damage);
                         this.createCollisionEffect(targetBody.position);
                         
@@ -4232,6 +4718,8 @@
                 
                 this.createDebris(body.position);
                 this.createExplosionEffect(body.position);
+
+                uiManager.addBattleLogEntry(`${body.componentData.team === 'player' ? 'Player' : 'Enemy'}'s ${body.componentData.name} destroyed!`, 'critical');
                 
                 if (body.componentData.type === 'control-unit') {
                     this.endBattle(body.componentData.team === 'player' ? 'lose' : 'win');
@@ -4332,6 +4820,11 @@
                     title.className = 'lose';
                     icon.textContent = '⏰';
                     message.textContent = 'The battle ended in a draw.';
+                    uiManager.addBattleLogEntry('Time up! Battle ended in a draw.', 'info');
+                } else if (result === 'win') {
+                     uiManager.addBattleLogEntry('Victory! Player bot wins.', 'success');
+                } else if (result === 'lose') {
+                     uiManager.addBattleLogEntry('Defeat! Enemy bot wins.', 'critical');
                 }
                 
                 document.getElementById('battleDuration').textContent = `${Math.floor(battleDuration / 60)}:${(battleDuration % 60).toString().padStart(2, '0')}`;
@@ -4464,11 +4957,78 @@
             
             // Initial stats update
             gameState.updateBotStats();
+
+            // Populate default bot buttons
+            const defaultBotsContainer = document.getElementById('defaultBotsContainer');
+            if (defaultBotsContainer) {
+                Object.entries(DEFAULT_BOTS).forEach(([botKey, botData]) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-primary';
+                    btn.textContent = botData.name;
+                    btn.dataset.botName = botKey;
+                    btn.title = botData.description;
+                    btn.addEventListener('click', () => gameManager.loadDefaultBot(botKey));
+                    defaultBotsContainer.appendChild(btn);
+                });
+            }
             
             // Show welcome notification
             setTimeout(() => {
                 uiManager.showNotification('Welcome to Bot Forge & Fight! Start by placing a Control Unit.', 'info', 5000);
             }, 1000);
+
+            // Bot Name Input Functionality
+            const botNameInput = document.getElementById('botNameInput');
+            if (botNameInput) {
+                botNameInput.addEventListener('input', (event) => {
+                    gameState.state.bot.name = event.target.value;
+                });
+                // Initialize with current bot name if any (e.g. after loading a bot)
+                if (gameState.state.bot.name) {
+                    botNameInput.value = gameState.state.bot.name;
+                }
+            }
+
+            // Populate custom bot load UI
+            uiManager.populateCustomBotLoadUI();
+
+            // Populate Opponent Selection Dropdown
+            const opponentSelect = document.getElementById('opponentSelect');
+            if (opponentSelect) {
+                opponentSelect.innerHTML = ''; // Clear existing options
+                Object.entries(DEFAULT_BOTS).forEach(([botKey, botData]) => {
+                    const option = document.createElement('option');
+                    option.value = botKey;
+                    option.textContent = botData.name;
+                    if (botKey === gameState.state.battle.selectedOpponentKey) {
+                        option.selected = true;
+                    }
+                    opponentSelect.appendChild(option);
+                });
+                opponentSelect.addEventListener('change', (event) => {
+                    gameState.state.battle.selectedOpponentKey = event.target.value;
+                    console.log("Opponent changed to: " + gameState.state.battle.selectedOpponentKey); // For debugging
+                });
+            }
+
+            // Setup header buttons
+            const saveButton = document.getElementById('saveBtn');
+            if (saveButton) {
+                saveButton.addEventListener('click', () => {
+                    gameManager.saveCustomBot();
+                });
+            }
+
+            const loadButton = document.getElementById('loadBtn');
+            if (loadButton) {
+                // Per instructions, loadBtn's functionality for custom local storage bots
+                // is handled by the new UI section. So, we can disable or re-purpose this.
+                // For now, let's just log a message if it's clicked.
+                loadButton.addEventListener('click', () => {
+                    console.log('Header Load button clicked - custom bot loading is via the new panel.');
+                    uiManager.showNotification('Use \"Load Custom Bot\" panel.', 'info');
+                });
+            }
         }
 
         // Start the game
